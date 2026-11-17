@@ -12,3 +12,12 @@ TASKS = {
     'insights': '增量更新已有共识/分歧，返回最多 8 项当前仍有效的观点。每项引用至少两位不同专家的实际消息 ID。共识必须有多方明确支持，不能把沉默当同意；分歧必须有明确不同观点。证据不足不生成。不得引用主持人作为第二位专家。合并重复项。',
     'summary': '主持人用自然中文总结：已达成的共识、仍存的分歧、下一步如何验证。只基于给定历史与观点，不新增事实。控制在 250–500 字内，content 中不要放 JSON 或 Markdown 标题。',
 }
+
+
+def output_example(task, context):
+    if task == 'roster':
+        def person(name): return {'name': name, 'profession': '与议题相关的专业', 'title': '具体职业头衔', 'stance': '与议题相关且可供讨论的立场'}
+        return {'host': person('主持人姓名'), 'experts': [person(f'专家姓名{i+1}') for i in range(context['expert_count'])]}
+    if task == 'intent': return {'action': 'wait', 'urgency': 0, 'target_message_id': None, 'public_focus': '关注一个具体问题'}
+    if task == 'insights': return {'items': []}  # Never invent evidence just to fill an example.
+    return {'content': '一段自然语言发言。针对当前讨论提出有依据的观点。'}

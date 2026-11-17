@@ -78,7 +78,7 @@ class DemoLLM:
             if len(authors) < 2: return {'items': []}
             evidence = [m['id'] for m in list(authors.values())[:4]]
             items = [dict(kind='consensus', content=f'先开展{pilot}，用实际证据决定是否扩大投入。', evidence_message_ids=evidence)]
-            supportive = next((m for m in expert_messages if '优先验证' in m['content']), None)
+            supportive = next((m for m in expert_messages if '优先验证' in m['content'] or '支持先验证' in m['content']), None)
             skeptical = next((m for m in expert_messages if '持保留意见' in m['content'] or '优先保护' in m['content']), None)
             if supportive and skeptical and supportive['participant_id'] != skeptical['participant_id']:
                 items.append(dict(kind='disagreement', content=f'决策时应优先推动{gain}，还是优先保护{risk}？', evidence_message_ids=[supportive['id'], skeptical['id']]))

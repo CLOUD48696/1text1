@@ -12,11 +12,13 @@ class Settings(BaseSettings):
     app_mode: Literal['demo', 'live'] = 'demo'
     database_url: str = f"sqlite:///{(ROOT / 'panel.db').as_posix()}"
     llm_api_key: str = Field(default='', repr=False)
-    llm_base_url: str = 'https://api.openai.com/v1'
-    llm_model: str = ''
+    llm_base_url: str = 'https://api.deepseek.com'
+    llm_model: str = 'deepseek-v4-pro'
     llm_timeout: float = Field(default=45, gt=0)
     llm_concurrency: int = Field(default=4, ge=1, le=16)
-    llm_json_mode: bool = False
+    llm_json_mode: bool = True
+    llm_thinking: bool = False
+    llm_max_tokens: int = Field(default=4096, ge=256, le=16384)
     max_turns: int = Field(default=8, ge=2, le=30)
     max_duration: float = Field(default=600, gt=0)
     max_calls: int = Field(default=180, ge=20)

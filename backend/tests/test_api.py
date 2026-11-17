@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 
@@ -163,3 +164,47 @@ def test_seed_is_idempotent_and_contains_five_rosters(settings):
 
 def test_live_mode_requires_backend_credentials():
     with pytest.raises(ValueError): Settings(_env_file=None, app_mode='live', llm_api_key='', llm_model='')
+
+
+def test_timeout_is_bounded_and_does_not_leak_provider_error(settings):
+    class Slow(DemoLLM):
+        async def generate(self, *args): await asyncio.sleep(10)
+    settings.llm_timeout = 0.02
+    with TestClient(create_app(settings, Slow())) as client:
+        did = create(client)
+        assert wait_for(client, did, {'failed'}, timeout=3)['discussion']['error']
+
+
+def test_all_waiting_intents_trigger_host_then_finish(settings):
+    class Quiet(DemoLLM):
+        async def generate(self, task, context, schema):
+            if task == 'intent': return {'action': 'wait', 'target_message_id': None, 'urgency': 0, 'public_focus': '暂时没有新的观点'}
+            return await super().generate(task, context, schema)
+    with TestClient(create_app(settings, Quiet())) as client:
+        did = create(client)
+        wait_for(client, did, {'ready'})
+        client.post(f'/api/discussions/{did}/start')
+        result = wait_for(client, did, {'completed', 'failed'})
+        assert result['discussion']['status'] == 'completed'
+        assert len(result['messages']) == 3
+        assert not result['insights']
+
+
+def test_call_budget_reserves_summary(settings):
+    settings.max_calls = 20
+    with TestClient(create_app(settings)) as client:
+        did = create(client)
+        wait_for(client, did, {'ready'})
+        client.post(f'/api/discussions/{did}/start')
+        result = wait_for(client, did, {'completed', 'failed'})
+        assert result['discussion']['status'] == 'completed'
+        assert result['discussion']['summary']
+        assert len(result['messages']) <= 7
+
+
+def test_demo_seed_contains_supported_disagreement(settings):
+    settings.seed_on_start = True
+    with TestClient(create_app(settings)) as client:
+        completed = next(r for r in client.get('/api/discussions').json()['items'] if r['status'] == 'completed')
+        state = client.get(f'/api/discussions/{completed["id"]}').json()
+        assert {i['kind'] for i in state['insights']} == {'consensus', 'disagreement'}
