@@ -17,6 +17,7 @@
 - 2026-11-17：后端 27 项测试通过，桌面/手机 E2E 6 项通过，TypeScript/Vite 构建通过；详细见 verification.md。
 - API 文档、ER 图、启动脚本、过程记录、工作流复盘已编写。
 - 2026-11-18 安装复现完成：setup.ps1、npm ci 和构建成功；start.ps1 运行后首页 HTTP 200，health 为 demo，列表含 5 场讨论。
+- 2026-11-18 已将 MVP 代码和交付文档推送到 origin/main，并核对远程与本地一致；交付提交为 8e0361c，后续状态文档提交以 Git 日志为准。
 
 ## 阶段提交
 
