@@ -1,6 +1,69 @@
 # 技术方案
 
-状态：设计稿，尚未实现。以下接口与目录均是计划契约。
+状态：MVP 已实现，2026-11-17 更新。下文保留设计脉络，接口的最终格式见 `api.md`。核心实现位于 `backend/app`，前端组件位于 `frontend/src/components`。
+
+## 实际落地与原方案差异
+
+- 前端使用 React + TypeScript + Vite + Zustand + Lucide + 原生 CSS，没有引入 Tailwind/shadcn。Home、Roster、Studio、Avatar 分开维护。
+- 后端路由集中在 `main.py`；短事务、事件追加与快照在 `database.py`，纯调度/证据规则在 `services/scheduler.py`，异步任务在 `services/runner.py`。
+- 持久化使用 SQLAlchemy + SQLite，外键与 busy timeout 已启用；本地单进程 RLock 协调短事务，未开启 WAL，未支持多 worker。
+- SSE 用 StreamingResponse 输出标准事件帧，250ms 查询持久化事件，约 10 秒心跳。命名类型放 JSON 的 type 字段，通过浏览器 onmessage 统一处理。
+- 过程上下文保留最近 12 条消息、每位专家较早发言的最后一条截取，以及有效观点；没有额外模型摘要任务，避免摘要产生新事实及额外延迟。
+- 真实模型仅接 DeepSeek，默认 deepseek-v4-pro，JSON 模式开启、thinking 关闭、max_tokens=4096；同接口可改为 deepseek-flash。官方参数已核对，实际 Key 请求尚未验收。
+- 源代码与依赖已锁定，测试记录见 `verification.md`；用户人工验收仍待进行。
+
+## 实际 ER 图
+
+```mermaid
+erDiagram
+  Discussion ||--o{ Participant : contains
+  Discussion ||--o{ Message : records
+  Discussion ||--o{ Insight : derives
+  Discussion ||--o{ Event : publishes
+  Participant ||--o{ Message : speaks
+  Message o|--o{ Message : replies_to
+  Discussion {
+    string id PK
+    string topic
+    string status
+    string phase
+    string mode
+    int event_seq
+    int message_seq
+  }
+  Participant {
+    string id PK
+    string discussion_id FK
+    string role
+    string name
+    string stance
+    string status
+  }
+  Message {
+    string id PK
+    string discussion_id FK
+    string participant_id FK
+    string reply_to_message_id FK
+    int sequence
+    string content
+  }
+  Insight {
+    string id PK
+    string discussion_id FK
+    string kind
+    string content
+    json evidence_message_ids
+  }
+  Event {
+    string id PK
+    string discussion_id FK
+    int sequence
+    string type
+    json data
+  }
+```
+
+消息与事件的 `(discussion_id, sequence)` 各自有唯一约束。Insight 的消息引用存为 JSON，并在服务层校验归属与至少两位专家，未建立独立多对多关联表。
 
 ## 1. 架构与选型
 
@@ -17,9 +80,9 @@ flowchart LR
   Events -->|SSE| UI
 ```
 
-前端使用 Tailwind CSS、shadcn/ui、Lucide 与 Zustand。后端使用 Pydantic 校验、SQLAlchemy 管理持久化。初版单后端进程，单讨论单任务，不引入 Redis/Celery。
+前端使用原生 CSS、Lucide 与 Zustand。后端使用 Pydantic 校验、SQLAlchemy 管理持久化。初版单后端进程，单讨论单任务，不引入 Redis/Celery。
 
-LLMClient 独立封装供应商请求，先适配一个实际可用的服务。OpenAI-compatible 是一种拟定适配方式，不假定所有提供商都支持相同结构化输出参数。支持时使用服务端结构化输出；无论是否支持，都用应用层 schema 验证。
+LLMClient 独立封装 DeepSeek Chat Completions 请求，使用 JSON object 模式与应用层 schema 校验，不假定 JSON 模式能够保证业务语义。模板默认 DeepSeek 官方地址；模型与参数可通过后端配置修改。
 
 开发使用真实模式与 deterministic demo/fake 模式。真实模式失败应显式报错，不自动悄悄降级成演示模式。
 
@@ -134,7 +197,7 @@ scripts/
 
 ## 8. SSE 契约与恢复
 
-事件类型：`roster.ready`、`discussion.updated`、`participant.updated`、`message.created`、`insights.updated`、`discussion.completed`、`discussion.failed`。
+事件类型：`roster.ready`、`participant.updated`、`message.created`、`insights.updated` 和 `discussion.{generating|running|completed|failed|interrupted}`。
 
 事件统一字段：`discussion_id, sequence, type, data, created_at`。SSE 的 id 使用讨论内 sequence，前端按 `(discussion_id, sequence)` 去重。
 
