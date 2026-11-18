@@ -1,57 +1,111 @@
-# API 与事件说明
+# API 与事件契约
 
-本地服务根地址 `http://127.0.0.1:8000`，前端开发通过 Vite `/api` 代理。无需登录，服务仅绑定 loopback；这不是面向公网的鉴权方案。
+服务根地址为 http://127.0.0.1:8000；所有业务端点使用 /api 前缀。开发时由 Vite 代理，构建后页面与 API 同源。无需登录，仅用于本机运行。
 
-## 路由
+实现：[main.py](../backend/app/main.py)、[schemas.py](../backend/app/schemas.py)。服务运行后可查看 [OpenAPI 页面](http://127.0.0.1:8000/docs)。
+
+## 1. HTTP 路由
 
 | 方法 | 路径 | 输入 | 成功响应 |
 | --- | --- | --- | --- |
-| GET | /api/health | 无 | `{status: "ok", mode: "demo"}` |
-| GET | /api/discussions | limit=1..100、cursor>=0 | `{items: Discussion[], next_cursor: number|null}` |
-| POST | /api/discussions | `{topic: string, expert_count: 2..6}` | 202，`{discussion_id, status: "generating"}` |
-| GET | /api/discussions/{id} | 无 | 一致快照，见下方 |
-| POST | /api/discussions/{id}/start | 无或 `{}` | 202 + 当前 Discussion；running 重复调用不创建新任务 |
-| POST | /api/discussions/{id}/retry-generation | 无或 `{}` | 202；只允许生成阶段失败且尚无消息 |
-| GET | /api/discussions/{id}/events | after>=0、可选 Last-Event-ID | text/event-stream |
+| GET | /api/health | 无 | 200，status 与 mode |
+| GET | /api/discussions | limit 默认 50，范围 1–100；cursor 默认 0，为非负偏移量 | 200，items 与 next_cursor |
+| POST | /api/discussions | topic、expert_count | 202，discussion_id 与 generating 状态 |
+| GET | /api/discussions/{id} | 讨论 ID | 200，一致快照 |
+| POST | /api/discussions/{id}/start | 无需请求体 | 202，当前 Discussion 对象 |
+| POST | /api/discussions/{id}/retry-generation | 无需请求体 | 202，discussion_id 与 generating 状态 |
+| GET | /api/discussions/{id}/events | after 默认 0，可选 Last-Event-ID 请求头 | 200，text/event-stream |
 
-topic 先去除首尾空白，再校验 4–240 字。人数默认 4，不包含主持人。不同角色均为虚构人物。
+topic 去除首尾空白后要求 4–240 字；expert_count 默认 4，范围 2–6，不包含主持人。额外创建字段会被拒绝。
 
-错误格式：`{code, message, retryable}`。找不到讨论为 404，输入或游标错误为 422，非法状态转换为 409。后台模型错误通过讨论状态和持久化事件返回，不暴露供应商原始响应、Key 或堆栈。
+start 仅允许已确认的 ready 阵容进入运行；对 running 重复调用不新增任务。retry-generation 仅用于 failed、phase=roster 且无发言的讨论；其他失败或中断应新建讨论。
 
-## 快照
+## 2. 创建、列表与快照示例
 
-```json
+创建请求：
+
+~~~json
+{"topic":"小型团队应该优先使用 AI 编程工具还是增加招聘？","expert_count":4}
+~~~
+
+异步受理响应：
+
+~~~json
+{"discussion_id":"示例讨论ID","status":"generating"}
+~~~
+
+列表结构为 {"items": [...], "next_cursor": 50}，末页 next_cursor 为 null。items 是 Discussion 对象，不包含嘉宾和发言。
+
+以下快照只示意字段结构，数组省略内容，并非一场完整讨论的实测响应：
+
+~~~json
 {
-  "discussion": {"id": "uuid", "topic": "议题", "expert_count": 4, "status": "ready", "phase": "roster", "mode": "demo", "summary": null, "error": null},
+  "discussion": {
+    "id": "示例讨论ID",
+    "topic": "示例议题",
+    "expert_count": 4,
+    "status": "generating",
+    "phase": "roster",
+    "mode": "demo",
+    "summary": null,
+    "error": null,
+    "event_seq": 0,
+    "message_seq": 0,
+    "created_at": "2026-11-18T00:00:00+00:00",
+    "updated_at": "2026-11-18T00:00:00+00:00"
+  },
   "participants": [],
   "messages": [],
   "insights": [],
   "last_event_sequence": 0
 }
-```
+~~~
 
-示例省略时间、内部计数等附加字段。Participant 包含 id、role、name、profession、title、stance、color、status、public_focus、position。Message 包含 id、participant_id、sequence、content、reply_to_message_id、created_at。Insight 包含 id、kind、content、evidence_message_ids、updated_at。
+participants、messages、insights 的字段与[数据库设计](database.md)一致。participants 按 position、messages 按 sequence 排序。mode 随讨论保存；切换后端 live 配置不会把已有 Demo 记录变成真实模型记录。
 
-## SSE
+## 3. SSE 事件格式
 
-先获取快照，再使用其 last_event_sequence 订阅。断线重连时 Last-Event-ID 优先于 URL 的 after。服务端从数据库按序补发，不会由于观众连接而启动 Runner。
+客户端先获取快照，再以 last_event_sequence 作为 after 订阅。重连时 Last-Event-ID 优先于 URL 中的 after；游标为当前讨论内的事件序号。
 
-```text
+~~~text
 id: 8
-data: {"discussion_id":"uuid","sequence":8,"type":"message.created","data":{"discussion":{},"message":{}},"created_at":"UTC ISO 8601"}
+data: {"id":"示例事件ID","discussion_id":"示例讨论ID","sequence":8,"type":"message.created","data":{"discussion":{},"message":{}},"created_at":"2026-11-18T00:00:00+00:00"}
 
-```
+~~~
 
-不使用 SSE 的命名 event 字段，前端统一通过 `onmessage` 接收，再读取 JSON 的 type。每条事件都带当前 Discussion 元数据；参与者状态、消息和观点按事件类型附加。
+上例省略 discussion 和 message 的具体字段。标准帧以空行结束，不发送命名 event 字段。浏览器通过 onmessage 接收，再按 JSON 的 type 分发。
 
-| type | data 附加字段 |
+每条事件的 data 都包含 discussion；其他字段如下：
+
+| type | data 中的附加字段 |
 | --- | --- |
 | roster.ready | participants |
 | participant.updated | participants |
 | message.created | message |
-| insights.updated | insights（当前有效观点全集） |
+| insights.updated | insights，当前有效观点全集 |
 | discussion.generating / running / completed / failed / interrupted | participants |
 
-序号在同场讨论内单调递增，前端按 discussion_id + sequence 去重。消息/状态更新和事件写入处于同一短事务，提交后才被订阅者读取。服务端每 250ms 查询新事件，约每 10 秒发心跳注释；终止状态的事件补发完后关闭流，前端也主动停止重连。
+事件 ID 为 UUID，SSE 帧的 id 则为 sequence，客户端恢复使用后者。消息序号不能作为 SSE 游标。
 
-请求负数、非整数或超过当前最新事件的游标会返回 422。直接重新获取快照即可恢复；不会因错误游标静默漏掉历史。
+## 4. 恢复与一致性
+
+事件从数据库按序补发，观众连接不会创建运行任务。前端按 discussion_id 和 sequence 去重、忽略旧状态；insights.updated 替换观点集合，不是单项追加。
+
+服务器每 250ms 读取新事件，约每 10 秒发送心跳注释。completed、failed、interrupted 的剩余事件发送完后结束流，前端停止自动重连。ready 仍可保持订阅，等待用户确认后运行。
+
+负数、非整数或超过最新序号的游标返回 422。客户端应重新获取快照再订阅，不能静默跳过未知历史。
+
+## 5. 错误契约
+
+~~~json
+{"code":"invalid_state","message":"当前讨论状态不允许此操作","retryable":false}
+~~~
+
+| HTTP 状态 | code | 情况 |
+| --- | --- | --- |
+| 404 | not_found | 讨论或 API 路径不存在 |
+| 409 | invalid_state | 非法状态切换、任务尚未停止等 |
+| 422 | invalid_input | 请求体、查询参数结构校验失败 |
+| 422 | invalid_cursor | Last-Event-ID 或游标范围无效 |
+
+后台模型失败发生在 202 响应之后，通过讨论 error 字段和 discussion.failed 事件通知，不代表最初 HTTP 创建请求失败。错误不返回 Key、供应商原始响应或内部堆栈。
