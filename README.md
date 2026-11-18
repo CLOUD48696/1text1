@@ -30,7 +30,7 @@
 | 5 | [安装与开发指南](docs/development.md) | 如何安装、配置模型、启动和测试？ |
 | 6 | [测试与验收记录](docs/verification.md) | 已验证什么，人工如何验收？ |
 | 7 | [开发过程与工作流复盘](docs/workflow.md) | 如何分阶段实现、遇到什么问题？ |
-| 8 | [Prompt 与开发指令记录](docs/prompt-log.md) | 有哪些可追溯记录，原始证据是否齐备？ |
+| 8 | [本轮开发 Prompt](docs/development-prompts.md) / [早期过程摘录](docs/prompt-log.md) | 本轮使用了什么指令，哪些属于历史摘录？ |
 | 9 | [交付清单](docs/delivery.md) | 原题规则和交付物完成到哪里？ |
 
 [AGENTS.md](AGENTS.md) 是编码协作规则，供开发工具读取，不属于产品说明或用户操作手册。
@@ -41,9 +41,9 @@
 - 后端：FastAPI、Pydantic、SQLAlchemy、SQLite，位于 [backend/app](backend/app)。
 - 实时通信：HTTP 命令和快照 + SSE 持久化事件。
 - 模型：后端 DeepSeek 适配器与独立 Demo 实现，密钥仅由后端读取。
-- 测试：pytest + Playwright，历史结果为 27 项后端测试、6 项 E2E 通过，详见验证记录。
+- 测试：pytest + Playwright，最新结果为 29 项后端测试、8 项 E2E 通过，详见验证记录。
 - 仓库：[CLOUD48696/1text1](https://github.com/CLOUD48696/1text1)，私有仓库。
 
 ## 使用边界
 
-只支持本地单后端进程。服务重启后未完成讨论标记为中断，保留历史，不自动续跑。首页目前只展示最新 100 场讨论；SSE 按完整短发言更新。真实模型质量、延迟、费用及用户人工验收尚未验证。详细差距见交付清单。
+只支持本地单后端进程。服务重启后未完成讨论标记为中断，保留历史，不自动续跑。首页支持服务端分类筛选与分页；SSE 按完整短发言更新。真实模型质量、延迟、费用及用户人工验收尚未验证。详细差距见交付清单。
