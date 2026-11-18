@@ -208,3 +208,31 @@ def test_demo_seed_contains_supported_disagreement(settings):
         completed = next(r for r in client.get('/api/discussions').json()['items'] if r['status'] == 'completed')
         state = client.get(f'/api/discussions/{completed["id"]}').json()
         assert {i['kind'] for i in state['insights']} == {'consensus', 'disagreement'}
+
+
+def test_list_filter_finds_old_active_room_before_paginating(client):
+    store = client.app.state.store
+    active = store.create('很早创建但仍待确认的讨论', 4, 'demo')['id']
+    store.roster(active, make_roster('很早创建但仍待确认的讨论', 4))
+    finished = []
+    for index in range(105):
+        did = store.create(f'已结束的历史讨论 {index}', 4, 'demo')['id']
+        store.transition(did, 'completed')
+        finished.append(did)
+    response = client.get('/api/discussions?filter=active&limit=20').json()
+    assert [item['id'] for item in response['items']] == [active]
+    assert response['next_cursor'] is None
+    seen, cursor = [], 0
+    while cursor is not None:
+        page = client.get(f'/api/discussions?filter=completed&limit=20&cursor={cursor}').json()
+        assert all(item['status'] == 'completed' for item in page['items'])
+        seen.extend(item['id'] for item in page['items'])
+        cursor = page['next_cursor']
+    assert len(seen) == len(set(seen)) == 105
+    assert set(seen) == set(finished)
+    assert client.get('/api/discussions?filter=all&limit=100').json()['next_cursor'] == 100
+    assert client.get('/api/discussions?filter=completed&cursor=105').json() == {'items': [], 'next_cursor': None}
+
+
+def test_list_rejects_unknown_filter(client):
+    assert client.get('/api/discussions?filter=unknown').status_code == 422

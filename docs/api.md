@@ -9,7 +9,7 @@
 | 方法 | 路径 | 输入 | 成功响应 |
 | --- | --- | --- | --- |
 | GET | /api/health | 无 | 200，status 与 mode |
-| GET | /api/discussions | limit 默认 50，范围 1–100；cursor 默认 0，为非负偏移量 | 200，items 与 next_cursor |
+| GET | /api/discussions | limit 默认 50，范围 1–100；cursor 默认 0，为非负偏移量；filter 默认为 all | 200，items 与 next_cursor |
 | POST | /api/discussions | topic、expert_count | 202，discussion_id 与 generating 状态 |
 | GET | /api/discussions/{id} | 讨论 ID | 200，一致快照 |
 | POST | /api/discussions/{id}/start | 无需请求体 | 202，当前 Discussion 对象 |
@@ -17,6 +17,8 @@
 | GET | /api/discussions/{id}/events | after 默认 0，可选 Last-Event-ID 请求头 | 200，text/event-stream |
 
 topic 去除首尾空白后要求 4–240 字；expert_count 默认 4，范围 2–6，不包含主持人。额外创建字段会被拒绝。
+
+列表 filter 契约：all 为全部状态；active 包含 generating、ready、running；completed 仅包含 completed。先在服务端筛选，再排序和分页，cursor 是筛选结果中的偏移量；切换分类必须归零。无效 filter 返回 422。客户端每页 20 条，支持上一页/下一页。并发新增或状态变化可能改变偏移分页的页面边界，不承诺跨多次请求的固定数据库快照。
 
 start 仅允许已确认的 ready 阵容进入运行；对 running 重复调用不新增任务。retry-generation 仅用于 failed、phase=roster 且无发言的讨论；其他失败或中断应新建讨论。
 
