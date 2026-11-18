@@ -1,6 +1,7 @@
 import asyncio
 import json
 from contextlib import asynccontextmanager
+from typing import Literal
 
 from fastapi import FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -44,8 +45,9 @@ def create_app(settings=None, client=None):
     async def health(): return {'status': 'ok', 'mode': settings.app_mode}
 
     @app.get('/api/discussions')
-    async def discussions(limit: int = Query(50, ge=1, le=100), cursor: int = Query(0, ge=0)):
-        return store.list(limit, cursor)
+    async def discussions(limit: int = Query(50, ge=1, le=100), cursor: int = Query(0, ge=0),
+                          filter: Literal['all', 'active', 'completed'] = 'all'):
+        return store.list(limit, cursor, filter)
 
     @app.post('/api/discussions', status_code=202)
     async def create(body: CreateDiscussion):

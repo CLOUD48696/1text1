@@ -58,9 +58,14 @@ class Store:
             session.flush()
             return dump(room)
 
-    def list(self, limit=50, cursor=0):
+    def list(self, limit=50, cursor=0, category='all'):
         with self.lock, self.sessions() as session:
-            rows = session.scalars(select(Discussion).order_by(Discussion.created_at.desc(), Discussion.id).offset(cursor).limit(limit + 1)).all()
+            query = select(Discussion)
+            if category == 'active':
+                query = query.where(Discussion.status.in_(['generating', 'ready', 'running']))
+            elif category == 'completed':
+                query = query.where(Discussion.status == 'completed')
+            rows = session.scalars(query.order_by(Discussion.created_at.desc(), Discussion.id).offset(cursor).limit(limit + 1)).all()
             return {'items': [dump(r) for r in rows[:limit]], 'next_cursor': cursor + limit if len(rows) > limit else None}
 
     def snapshot(self, did):

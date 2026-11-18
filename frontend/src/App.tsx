@@ -27,6 +27,11 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
   const [filter, setFilter] = useState("all");
+  const [listCursor, setListCursor] = useState(0);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [listBusy, setListBusy] = useState(false);
+  const [listError, setListError] = useState("");
+  const listRequest = useRef(0);
   const [topic, setTopic] = useState("");
   const [count, setCount] = useState(4);
   const [subscriptionVersion, reconnect] = useState(0);
@@ -34,23 +39,55 @@ export default function App() {
   activeRoom.current = selected;
   const snapshot = useStudio((s) => s.snapshot);
   const refresh = useCallback(async () => {
+    const version = ++listRequest.current;
+    setListBusy(true);
     try {
       const [list, health] = await Promise.all([
-        api<{ items: Discussion[] }>("/discussions?limit=100"),
+        api<{ items: Discussion[]; next_cursor: number | null }>(
+          `/discussions?limit=20&cursor=${listCursor}&filter=${filter}`,
+        ),
         api<{ mode: string }>("/health"),
       ]);
+      if (version !== listRequest.current) return;
+      if (!list.items.length && listCursor > 0) {
+        setListCursor(Math.max(0, listCursor - 20));
+        return;
+      }
       setItems(list.items);
+      setNextCursor(list.next_cursor);
       setMode(health.mode);
-      setError("");
+      setListError("");
     } catch (e) {
-      setError((e as Error).message);
+      if (version === listRequest.current) setListError((e as Error).message);
+    } finally {
+      if (version === listRequest.current) setListBusy(false);
     }
-  }, []);
+  }, [filter, listCursor]);
   useEffect(() => {
     void refresh();
     const timer = setInterval(refresh, 8000);
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+      listRequest.current += 1;
+    };
   }, [refresh]);
+  const changeFilter = (value: string) => {
+    if (value === filter) return;
+    listRequest.current += 1;
+    setItems([]);
+    setNextCursor(null);
+    setListError("");
+    setListBusy(true);
+    setListCursor(0);
+    setFilter(value);
+  };
+  const changePage = (cursor: number) => {
+    listRequest.current += 1;
+    setItems([]);
+    setListError("");
+    setListBusy(true);
+    setListCursor(cursor);
+  };
   useEffect(() => {
     const onHash = () => select(location.hash.slice(1) || null);
     window.addEventListener("hashchange", onHash);
@@ -202,12 +239,18 @@ export default function App() {
             filter,
             mode,
             busy,
+            listBusy,
+            listError,
+            listCursor,
+            nextCursor,
+            changePage,
+            refresh,
             setTopic,
             setCount,
-            setFilter,
             create,
             navigate,
           }}
+          setFilter={changeFilter}
         />
       ) : !snapshot ? (
         <main className="loading">

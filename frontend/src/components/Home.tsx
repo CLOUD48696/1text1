@@ -20,6 +20,12 @@ interface Props {
   filter: string;
   mode: string;
   busy: boolean;
+  listBusy: boolean;
+  listError: string;
+  listCursor: number;
+  nextCursor: number | null;
+  changePage: (cursor: number) => void;
+  refresh: () => Promise<void>;
   setTopic: (v: string) => void;
   setCount: (v: number) => void;
   setFilter: (v: string) => void;
@@ -33,19 +39,18 @@ export default function Home({
   filter,
   mode,
   busy,
+  listBusy,
+  listError,
+  listCursor,
+  nextCursor,
+  changePage,
+  refresh,
   setTopic,
   setCount,
   setFilter,
   create,
   navigate,
 }: Props) {
-  const visible = items.filter(
-    (d) =>
-      filter === "all" ||
-      (filter === "active"
-        ? ["running", "generating", "ready"].includes(d.status)
-        : d.status === "completed"),
-  );
   return (
     <main className="home-scroll">
       <div className="home-content">
@@ -180,7 +185,8 @@ export default function Home({
           <div className="list-heading">
             <div>
               <h2>
-                讨论空间 <span className="count-badge">{items.length}</span>
+                讨论空间{" "}
+                <span className="count-badge">本页 {items.length} 场</span>
               </h2>
               <p>继续未完的思考，或回看观点的碰撞</p>
             </div>
@@ -193,6 +199,7 @@ export default function Home({
                 <button
                   className={filter === key ? "chosen" : ""}
                   key={key}
+                  aria-pressed={filter === key}
                   onClick={() => setFilter(key)}
                 >
                   {title}
@@ -200,8 +207,20 @@ export default function Home({
               ))}
             </div>
           </div>
-          <div className="discussion-grid">
-            {visible.map((d, i) => (
+          {listError && (
+            <div className="list-error" role="alert">
+              <span>{listError}</span>
+              <button
+                className="secondary"
+                disabled={listBusy}
+                onClick={() => void refresh()}
+              >
+                重试加载列表
+              </button>
+            </div>
+          )}
+          <div className="discussion-grid" aria-busy={listBusy}>
+            {items.map((d, i) => (
               <button
                 className="discussion-card"
                 key={d.id}
@@ -238,16 +257,37 @@ export default function Home({
               </button>
             ))}
           </div>
-          {!visible.length && (
+          {!items.length && !listError && (
             <div className="empty-list">
               <Layers3 size={26} />
               <p>
-                {items.length
-                  ? "这个分类还没有讨论"
-                  : "第一场好讨论，从你的问题开始"}
+                {listBusy
+                  ? "正在加载讨论…"
+                  : filter === "all"
+                    ? "第一场好讨论，从你的问题开始"
+                    : "这个分类还没有讨论"}
               </p>
             </div>
           )}
+          <nav className="list-pagination" aria-label="讨论列表分页">
+            <button
+              className="secondary"
+              disabled={listBusy || listCursor === 0}
+              onClick={() => changePage(Math.max(0, listCursor - 20))}
+            >
+              上一页
+            </button>
+            <span aria-live="polite">
+              第 {Math.floor(listCursor / 20) + 1} 页
+            </span>
+            <button
+              className="secondary"
+              disabled={listBusy || listError !== "" || nextCursor === null}
+              onClick={() => nextCursor !== null && changePage(nextCursor)}
+            >
+              下一页
+            </button>
+          </nav>
         </section>
         <footer className="home-footer">
           <span>Panel Studio · 为更深入的思考留一个位置</span>

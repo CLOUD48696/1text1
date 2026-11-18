@@ -1,5 +1,57 @@
 import { expect, test } from "@playwright/test";
 
+test("server filters span pages and category changes reset the page", async ({
+  page,
+}, info) => {
+  for (let index = 0; index < 25; index++) {
+    const response = await page.request.post("/api/discussions", {
+      data: {
+        topic: `分页回归 ${info.project.name} 第 ${index} 场讨论`,
+        expert_count: 2,
+      },
+    });
+    expect(response.status()).toBe(202);
+  }
+  await page.goto("/");
+  await expect(page.locator(".discussion-card")).toHaveCount(20);
+  const firstPage = await page.locator(".discussion-card h3").allTextContents();
+  await page.getByRole("button", { name: "下一页", exact: true }).click();
+  await expect(page.getByText("第 2 页", { exact: true })).toBeVisible();
+  await expect(page.locator(".discussion-card").first()).toBeVisible();
+  const secondPage = await page
+    .locator(".discussion-card h3")
+    .allTextContents();
+  expect(secondPage.some((topic) => firstPage.includes(topic))).toBe(false);
+  await page.getByRole("button", { name: "已结束", exact: true }).click();
+  await expect(page.getByText("第 1 页", { exact: true })).toBeVisible();
+  await expect(page.locator(".discussion-card").first()).toBeVisible();
+  await expect(
+    page.locator(".discussion-card .status-pill:not(.completed)"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "上一页", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "下一页", exact: true }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "进行中", exact: true }).click();
+  await expect(page.locator(".discussion-card")).toHaveCount(20);
+  await expect(
+    page.locator(".discussion-card .status-pill.completed"),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "下一页", exact: true }),
+  ).toBeEnabled();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.screenshot({
+    path: `test-results/pagination-${info.project.name}.png`,
+  });
+});
+
 test("create, confirm, stream, reconnect, finish and inspect evidence", async ({
   page,
 }, info) => {
