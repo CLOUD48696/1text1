@@ -31,7 +31,7 @@ if __name__ == '__main__':
         raise SystemExit('交付缺少必要文件：' + ', '.join(sorted(required - set(files))))
     records = [{'path': p, 'sha256': hashlib.sha256((ROOT / p).read_bytes()).hexdigest()} for p in files]
     manifest = {'revision': revision, 'file_count': len(files), 'files': records,
-                'runtime_mode': 'demo by default; real DeepSeek not yet verified'}
+                'runtime_mode': 'demo by default; configure live mode for DeepSeek'}
     output = ROOT / 'output' / 'delivery'
     output.mkdir(parents=True, exist_ok=True)
     archive = output / 'ai-panel-studio.zip'

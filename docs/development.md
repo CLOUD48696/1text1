@@ -64,7 +64,7 @@ LLM_BASE_URL=https://api.deepseek.com
 LLM_MODEL=填写账户可调用的模型标识
 ~~~
 
-LLM_MODEL 的示例是占位说明，必须替换为真实模型标识。当前代码默认值为 deepseek-v4-pro；这是代码配置事实，不代表已经验证账户权限或实际调用成功。
+LLM_MODEL 的示例是占位说明，必须替换为真实模型标识。当前代码默认值为 deepseek-v4-pro；这是代码配置事实，当前账号的联调结果见验证记录。
 
 保存后停止旧服务并重新启动，新建讨论进行验证。已有 Demo 种子保留原模式。live 出错不会自动切换成预设文本；错误会在页面显示。真实模型验收步骤见验证记录。
 
@@ -80,7 +80,7 @@ LLM_MODEL 的示例是占位说明，必须替换为真实模型标识。当前�
 | DATABASE_URL | 项目根目录 panel.db 的 SQLite URL | 本机持久化位置 |
 | LLM_API_KEY | 空 | 仅后端读取 |
 | LLM_BASE_URL | https://api.deepseek.com | 模型接口基础地址 |
-| LLM_MODEL | deepseek-v4-pro | 模型标识，真实可用性待验收 |
+| LLM_MODEL | deepseek-v4-pro | 模型标识，已通过真实短场次联调 |
 | LLM_JSON_MODE | true | 请求 JSON object 输出 |
 | LLM_THINKING | false | 适配器发送 thinking disabled |
 | LLM_MAX_TOKENS | 4096 | 单次输出 token 上限 |
