@@ -40,6 +40,30 @@ def create(client, topic='小团队应该优先使用 AI 工具还是招聘？')
     return response.json()['discussion_id']
 
 
+def test_verbose_expert_cannot_end_the_panel(settings):
+    class VerboseFirst(DemoLLM):
+        attempts = []
+
+        async def generate(self, task, context, schema):
+            if task == 'intent':
+                return {'action': 'raise', 'urgency': 1, 'public_focus': '讨论工作意义'}
+            if task == 'speech' and len(self.attempts) < 2:
+                self.attempts.append(context['person']['id'])
+                return {'content': '工作可以创造价值。它也联结社会。还要考虑收入。'}
+            return await super().generate(task, context, schema)
+
+    model = VerboseFirst()
+    with TestClient(create_app(settings, model)) as client:
+        did = create(client, 'ai时代，人类是否还需要工作')
+        wait_for(client, did, {'ready'})
+        client.post(f'/api/discussions/{did}/start')
+        room = wait_for(client, did, {'completed', 'failed'})
+        assert room['discussion']['status'] == 'completed'
+        assert len(model.attempts) == 2
+        assert room['messages'][1]['participant_id'] != model.attempts[0]
+        assert all('还要考虑收入' not in m['content'] for m in room['messages'])
+
+
 def test_roster_requires_confirmation_and_start_is_idempotent(client):
     did = create(client)
     ready = wait_for(client, did, {'ready'})
