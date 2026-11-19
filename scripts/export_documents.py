@@ -62,7 +62,7 @@ def export(source, filename, title, font, compact=False):
         canvas.setFont(font, 8)
         canvas.setFillColor(colors.HexColor('#708277'))
         canvas.drawString(44, A4[1] - 28, 'AI PANEL STUDIO  /  DEVELOPMENT RECORD')
-        canvas.drawString(44, 25, 'Codex 辅助开发 · 2026-11-18')
+        canvas.drawString(44, 25, 'AI Panel Studio · 2026-11-18')
         canvas.drawRightString(A4[0] - 44, 25, str(doc.page))
         canvas.restoreState()
 

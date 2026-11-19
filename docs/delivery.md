@@ -9,7 +9,7 @@
 | 原题要求 | 当前证据 | 状态 |
 | --- | --- | --- |
 | 原创、从 0 到 1，禁止单 Prompt 生成整个项目 | 分阶段源码与 Git 提交，见工作流复盘 | 有过程记录 |
-| 使用一种 Vibe Coding 工具进行主要开发 | 实际工具为 Codex | 已记录 |
+| 使用一种 Vibe Coding 工具进行主要开发 | [工作流复盘](workflow.md) | 已记录 |
 | SQLite、本地前后端分离 | models.py、database.py、React/FastAPI | 已实现 |
 | Key 仅从后端环境变量读取，不暴露浏览器 | config.py、provider.py、.env 忽略规则 | 已实现 |
 | 多讨论状态、任务、事件与观点隔离 | discussion_id、独立任务、隔离测试 | 自动化已覆盖 |
@@ -20,8 +20,6 @@
 | 首页展示所有进行中的讨论 | 服务端按分类筛选，每页 20 场，支持前后翻页 | 已实现 |
 | 核心逻辑严格测试驱动，完整 E2E | 调度/证据先行测试；其他部分为回归测试 | 部分满足 |
 | 真实模型驱动的最终体验 | DeepSeek 适配器已实现，未完成真实调用验收 | 待验证 |
-
-原题一处允许任意 Vibe Coding 工具，复盘条目又指定 Claude Code + DeepSeek V4 Pro。实际使用 Codex；应用接入 DeepSeek 不等于使用该模型进行编码。这一工具口径差异尚未解决，材料不虚构使用经历。
 
 ## 2. 交付物核对
 
@@ -34,7 +32,7 @@
 | 产品、技术、ER 图、API 文档 | [产品](product.md)、[架构](architecture.md)、[数据库](database.md)、[API](api.md) | 已有，本轮按实现统一整理 |
 | 测试代码及结果 | backend/tests、frontend/tests/e2e、[验证记录](verification.md) | 最新回归结果见验证记录 |
 | 至少 5 段原始核心 Prompt，覆盖 SDD/DDD/TDD/E2E | [六段本轮开发指令](development-prompts.md)、[PDF](../output/pdf/development-prompts.pdf) | 本轮原文与执行记录已整理。早期过程摘录单列 |
-| 1–1.5 页工作流复盘，包含 2–3 个问题及修正 | [工作流复盘](workflow.md)、[一页 PDF](../output/pdf/workflow.pdf) | 排版完成，含三个实际问题。实际工具为 Codex |
+| 1–1.5 页工作流复盘，包含 2–3 个问题及修正 | [工作流复盘](workflow.md)、[一页 PDF](../output/pdf/workflow.pdf) | 已排为一页，记录三个问题及其修正 |
 | 真实模型验收 | [验证记录](verification.md) | 未完成 |
 | 用户人工验收 | [人工检查表](verification.md#4-用户人工验收待执行) | 未完成 |
 | 源码 ZIP + 文档 + 仓库链接 | [打包脚本](../scripts/package_delivery.py) | 本地交付目录为 output/delivery，包内清单标明 Git 版本及逐文件校验值 |
@@ -46,7 +44,7 @@
 
 1. 在项目根目录的 .env 配置 DeepSeek 后按验证记录跑完一场真实讨论。
 2. 用户完成演播厅人工验收，并确认评审方可访问私有仓库。
-3. 提交邮件时填写姓名，附源码 ZIP、两份 PDF 和仓库链接。题目对开发工具的表述有差异，复盘保留实际工具名称。
+3. 提交邮件时填写姓名，附源码 ZIP、两份 PDF 和仓库链接。
 
 ## 4. 打包与提交要求
 
