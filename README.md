@@ -41,7 +41,7 @@
 - 后端：FastAPI、Pydantic、SQLAlchemy、SQLite，位于 [backend/app](backend/app)。
 - 实时通信：HTTP 命令和快照 + SSE 持久化事件。
 - 模型：后端 DeepSeek 适配器与独立 Demo 实现，密钥仅由后端读取。
-- 测试：pytest + Playwright，最新结果为 29 项后端测试、8 项 E2E 通过，详见验证记录。
+- 测试：pytest + Playwright，最新结果为 30 项后端测试、8 项 E2E 通过，详见验证记录。
 - 仓库：[CLOUD48696/1text1](https://github.com/CLOUD48696/1text1)，私有仓库。
 
 ## 使用边界

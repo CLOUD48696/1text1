@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 from dataclasses import dataclass
 from time import monotonic
@@ -8,13 +9,20 @@ from app.database import StateConflict, Store
 from app.llm.base import LLMClient
 from app.llm.demo import DemoLLM
 from app.llm.provider import ProviderLLM
-from app.schemas import Insights, Intent, Roster, Speech, Summary
+from app.schemas import ExpertSpeech, Insights, Intent, Roster, Speech, Summary
 from app.services.scheduler import choose_speaker, validate_evidence, validate_roster
 
 
 @dataclass
 class Budget:
     calls: int = 0
+
+
+class InvalidExpertSpeech(ValueError):
+    pass
+
+
+logger = logging.getLogger(__name__)
 
 
 class Engine:
@@ -41,9 +49,15 @@ class Engine:
                 return parsed
             except asyncio.CancelledError:
                 raise
-            except Exception:
-                if attempt == 1: raise
-                context = {**context, 'format_feedback': '上次输出未通过结构/业务校验或请求失败，请严格按要求重试。'}
+            except Exception as exc:
+                if attempt == 1:
+                    logger.warning('discussion=%s task=%s error_type=%s', did, task, type(exc).__name__)
+                    if task == 'speech' and isinstance(exc, ValueError):
+                        raise InvalidExpertSpeech('专家发言未通过格式校验') from exc
+                    raise
+                feedback = ('请只回答一个要点，用一句 40–90 字的完整中文句子，返回含 content 的 JSON 对象。'
+                            if task == 'speech' else '上次输出未通过结构/业务校验或请求失败，请严格按要求重试。')
+                context = {**context, 'format_feedback': feedback}
                 await asyncio.sleep(0.1)
 
     def context(self, did):
@@ -111,7 +125,8 @@ class Engine:
                 chunks = [s for s in re.split(r'[。！？!?]+', result.content) if s.strip(' ”"\n')]
                 if len(chunks) > 2 or len(result.content) > 220:
                     raise ValueError('专家每次发言需限制为 1–2 句，最多 220 字')
-        response = await self.call(did, task, context, Summary if task == 'summary' else Speech, budget, validate_speech)
+        schema = {'summary': Summary, 'speech': ExpertSpeech}.get(task, Speech)
+        response = await self.call(did, task, context, schema, budget, validate_speech)
         self.store.states(did, {person['id']: {'status': 'speaking'}})
         self.store.message(did, person['id'], response.content, intent.target_message_id if intent else None)
         await asyncio.sleep(self.settings.demo_delay if self.store.snapshot(did)['discussion']['mode'] == 'demo' else 0.5)
@@ -144,14 +159,25 @@ class Engine:
                 waiting[pid] = waiting.get(pid, 0) + 1 if intent.action != 'wait' else 0
             self.store.states(did, {pid: {'status': 'preparing' if i.action != 'wait' else 'idle', 'public_focus': i.public_focus} for pid, i in intents.items()})
             winner = choose_speaker(intents, history, waiting)
+            rejected = False
+            while winner is not None:
+                person = next(p for p in experts if p['id'] == winner)
+                try:
+                    await self.say(did, person, 'speech', budget, intents[winner])
+                    break
+                except InvalidExpertSpeech:
+                    rejected = True
+                    del intents[winner]
+                    winner = choose_speaker(intents, history, waiting) if budget.calls + 4 <= self.settings.max_calls else None
             if winner is None:
                 empty_rounds += 1
-                if empty_rounds >= 2: break
+                if empty_rounds >= 2:
+                    if rejected and not history:
+                        raise InvalidExpertSpeech('连续两轮没有合格的专家发言')
+                    break
                 await self.say(did, host, 'followup', budget)
                 continue
             empty_rounds = 0
-            person = next(p for p in experts if p['id'] == winner)
-            await self.say(did, person, 'speech', budget, intents[winner])
             history.append(winner)
             waiting[winner] = 0
             if len(history) >= 2:

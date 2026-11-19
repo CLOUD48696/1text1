@@ -33,7 +33,7 @@
 | 测试代码及结果 | backend/tests、frontend/tests/e2e、[验证记录](verification.md) | 最新回归结果见验证记录 |
 | 至少 5 段原始核心 Prompt，覆盖 SDD/DDD/TDD/E2E | [六段本轮开发指令](development-prompts.md)、[PDF](../output/pdf/development-prompts.pdf) | 本轮原文与执行记录已整理。早期过程摘录单列 |
 | 1–1.5 页工作流复盘，包含 2–3 个问题及修正 | [工作流复盘](workflow.md)、[一页 PDF](../output/pdf/workflow.pdf) | 已排为一页，记录三个问题及其修正 |
-| 真实模型联调 | [验证记录](verification.md) | 后端短场次通过，已记录首次失败 |
+| 真实模型联调 | [验证记录](verification.md) | 已完成短场与默认四专家同题复测，浏览器回看通过 |
 | 用户人工验收 | [人工检查表](verification.md#4-用户人工验收待执行) | 未完成 |
 | 源码 ZIP + 文档 + 仓库链接 | [打包脚本](../scripts/package_delivery.py) | 本地交付目录为 output/delivery，包内清单标明 Git 版本及逐文件校验值 |
 | 邮件提交 | 原题指定收件人、姓名与附件 | 未执行 |

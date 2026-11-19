@@ -42,6 +42,10 @@ class Speech(StrictModel):
     content: str = Field(min_length=4, max_length=420)
 
 
+class ExpertSpeech(Speech):
+    content: str = Field(min_length=4, max_length=220, description='用一至两句中文回答一个要点，建议 40–90 字。')
+
+
 class Summary(StrictModel):
     content: str = Field(min_length=10, max_length=1600)
 
